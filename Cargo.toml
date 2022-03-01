@@ -7,8 +7,9 @@ edition = "2021"
 notify = "4"
 clap = { version = "3.1.0", features = ["derive"] }
 git2 = "0.13"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.5"
+walkdir = "2"
+# serde = { version = "1.0", features = ["derive"] }
+# toml = "0.5"
 
 # color-eyre = "0.5"
 # thiserror = "1.0"
