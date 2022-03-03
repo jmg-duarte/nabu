@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use git2::PushOptions;
 
 type Result<T> = std::result::Result<T, git2::Error>;
 
@@ -48,6 +50,25 @@ impl WatchedRepository {
             &tree,
             &[&parent_commit],
         )?;
+        Ok(())
+    }
+
+    #[allow(unused)] // TODO: use this function when closing the program
+    pub fn push(&self) -> Result<()> {
+        let repo = &self.0;
+        let head = repo.head()?;
+        let current_branch_name = head.name().unwrap();
+        let mut remote = repo.find_remote(&current_branch_name)?;
+
+        let mut remote_callbacks = git2::RemoteCallbacks::new();
+        remote_callbacks.push_update_reference(|refname, status| {
+            println!("{:#?} {:#?}", refname, status);
+            Ok(())
+        });
+
+        let refspecs: &[&str] = &[];
+        let mut push_options = PushOptions::new();
+        remote.push(refspecs, Some(&mut push_options))?;
         Ok(())
     }
 }
