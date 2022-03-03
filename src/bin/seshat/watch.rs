@@ -10,7 +10,9 @@ use std::{
 
 use clap::Args;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-const DEFAULT_DELAY: u64 = 5;
+
+/// Default watcher delay (in seconds).
+const DEFAULT_DELAY: u64 = 30;
 
 fn default_config_path() -> String {
     std::env::var("HOME").unwrap() + "/.config/seshat.toml"
@@ -50,16 +52,6 @@ macro_rules! handle_event {
 pub(crate) struct Watch {
     args: WatchArgs,
     repo: WatchedRepository,
-}
-
-impl From<WatchArgs> for Watch {
-    fn from(args: WatchArgs) -> Self {
-        let directory = args.directory.clone();
-        Self {
-            args,
-            repo: WatchedRepository::new(directory).unwrap(),
-        }
-    }
 }
 
 impl Watch {
@@ -114,5 +106,15 @@ impl Watch {
 
         repo.stage(path).unwrap();
         repo.commit(&message).unwrap();
+    }
+}
+
+impl From<WatchArgs> for Watch {
+    fn from(args: WatchArgs) -> Self {
+        let directory = args.directory.clone();
+        Self {
+            args,
+            repo: WatchedRepository::new(directory).unwrap(),
+        }
     }
 }
