@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "seshat"
-version = "0.1.0"
+version = "0.0.1-rc0"
 dependencies = [
  "chrono",
  "clap",
