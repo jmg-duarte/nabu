@@ -9,6 +9,14 @@ the main use case for Seshat is to constantly keep your work committed, automati
 It watches over your files and when it detects changes,
 Seshat will stage and commit them to your repository.
 
+## Usage
+
+Watch over a directory:
+
+```bash
+$ seshat watch <directory>
+```
+
 ## Configuration precedence
 
 - Command-line flags
