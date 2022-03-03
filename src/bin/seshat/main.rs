@@ -1,5 +1,4 @@
-mod fs;
-mod git;
+use seshat::{fs::list_subdirs, git::WatchedRepository};
 
 use std::{
     collections::HashSet,
@@ -10,12 +9,8 @@ use std::{
 };
 
 use clap::{Args, Parser, Subcommand};
-use fs::list_subdirs;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::git::WatchedRepository;
-
-// TODO: configurable delay (config)
 const DEFAULT_DELAY: u64 = 5;
 
 fn default_config_path() -> String {
