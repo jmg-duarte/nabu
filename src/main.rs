@@ -34,11 +34,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Watch(Watch),
+    Watch(WatchArgs),
 }
 
 #[derive(Args)]
-struct Watch {
+struct WatchArgs {
     /// The directory to watch over.
     #[clap(default_value_t=current_dir_string())]
     directory: String,
@@ -55,27 +55,49 @@ struct Watch {
     delay: u64,
 }
 
+macro_rules! handle_event {
+    ($path:ident, $message:literal) => {
+        (
+            $path,
+            format!($message, $path.to_str().unwrap(), chrono::Utc::now()),
+        )
+    };
+}
+
+struct Watch {
+    args: WatchArgs,
+    repo: WatchedRepository,
+}
+
+impl From<WatchArgs> for Watch {
+    fn from(args: WatchArgs) -> Self {
+        let directory = args.directory.clone();
+        Self {
+            args,
+            repo: WatchedRepository::new(directory).unwrap(),
+        }
+    }
+}
+
 impl Watch {
-    fn run(&mut self) {
+    fn run(self) {
         let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(self.delay)).unwrap();
+        let mut watcher = watcher(tx, Duration::from_secs(self.args.delay)).unwrap();
 
         let directories = list_subdirs(
-            &self.directory,
+            &self.args.directory,
             HashSet::from_iter(vec![".obsidian", ".git"].into_iter().map(|s| OsStr::new(s))),
         );
 
-        println!("{:#?}", directories);
-
-        for dir in directories {
+        for dir in &directories {
             watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
         }
 
-        let repo = WatchedRepository::new(&self.directory).unwrap();
+        println!("Watching over {:#?}", directories);
 
         loop {
             match rx.recv() {
-                Ok(event) => self.handle_event(&event, &repo),
+                Ok(event) => self.handle_event(&event, &self.repo),
                 Err(e) => println!("watch error: {:?}", e),
             }
         }
@@ -86,38 +108,10 @@ impl Watch {
         // TODO: better commit messages (e.g. short title, descriptive body)
         // TODO: configurable commit messages
         let (path, message) = match event {
-            DebouncedEvent::Create(path) => (
-                path,
-                format!(
-                    "created file {} @ {}",
-                    path.to_str().unwrap(),
-                    chrono::Utc::now()
-                ),
-            ),
-            DebouncedEvent::Write(path) => (
-                path,
-                format!(
-                    "written file {} @ {}",
-                    path.to_str().unwrap(),
-                    chrono::Utc::now()
-                ),
-            ),
-            DebouncedEvent::Chmod(path) => (
-                path,
-                format!(
-                    "chmod file {} @ {}",
-                    path.to_str().unwrap(),
-                    chrono::Utc::now()
-                ),
-            ),
-            DebouncedEvent::Remove(path) => (
-                path,
-                format!(
-                    "deleted file {} @ {}",
-                    path.to_str().unwrap(),
-                    chrono::Utc::now()
-                ),
-            ),
+            DebouncedEvent::Create(path) => handle_event!(path, "created file {} @ {}"),
+            DebouncedEvent::Write(path) => handle_event!(path, "written file {} @ {}"),
+            DebouncedEvent::Chmod(path) => handle_event!(path, "chmod file {} @ {}"),
+            DebouncedEvent::Remove(path) => handle_event!(path, "deleted file {} @ {}"),
             DebouncedEvent::Rename(old, new) => (
                 new,
                 format!(
@@ -141,8 +135,8 @@ impl Watch {
 }
 
 fn main() {
-    let mut cli = Cli::parse();
-    match &mut cli.commands {
-        Commands::Watch(watch) => watch.run(),
+    let cli = Cli::parse();
+    match cli.commands {
+        Commands::Watch(args) => Watch::from(args).run(),
     }
 }
