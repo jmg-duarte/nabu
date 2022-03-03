@@ -1,3 +1,5 @@
+<img src="static/seshat-icon.png" width="100" align="right"/>
+
 # Seshat
 
 > Seshat, was the ancient Egyptian goddess of wisdom, knowledge, and writing.
@@ -17,11 +19,12 @@ Watch over a directory:
 $ seshat watch <directory>
 ```
 
-## Configuration precedence
+
+<!-- ## Configuration precedence
 
 - Command-line flags
 - `./seshat.toml` - current directory
-- `~/.config/seshat.toml` - global configuration file
+- `~/.config/seshat.toml` - global configuration file -->
 
 #### License
 
