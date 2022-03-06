@@ -510,6 +510,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "nabu"
+version = "0.0.1-rc0"
+dependencies = [
+ "chrono",
+ "clap",
+ "color-eyre",
+ "flexi_logger",
+ "git2",
+ "log",
+ "notify",
+ "serde",
+ "toml",
+ "walkdir",
+]
+
+[[package]]
 name = "net2"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -740,22 +756,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "seshat"
-version = "0.0.1-rc0"
-dependencies = [
- "chrono",
- "clap",
- "color-eyre",
- "flexi_logger",
- "git2",
- "log",
- "notify",
- "serde",
- "toml",
- "walkdir",
 ]
 
 [[package]]

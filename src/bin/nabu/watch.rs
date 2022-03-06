@@ -1,13 +1,14 @@
 use log::{debug, error};
-use seshat::{
-    config::Config,
-    fs::{current_dir_string, list_subdirs},
+use nabu::{
+    config::{global_config_path, local_config_path, Config},
+    fs::list_subdirs,
     git::WatchedRepository,
 };
 
 use std::{
     collections::HashSet,
     ffi::OsStr,
+    path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
     time::Duration,
 };
@@ -40,8 +41,8 @@ macro_rules! setup_field {
 #[derive(Args)]
 pub(crate) struct WatchArgs {
     /// The directory to watch over.
-    #[clap(default_value_t=current_dir_string())]
-    directory: String,
+    #[clap(parse(from_os_str))]
+    directory: PathBuf,
     /// Whether to watch sub-directories.
     #[clap(short, long)]
     recursive: bool,
@@ -54,6 +55,9 @@ pub(crate) struct WatchArgs {
     /// List of directories to ignore.
     #[clap(long)]
     ignore: Option<Vec<String>>,
+    /// Path to the configuration file.
+    #[clap(short, long, parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 pub(crate) struct Watch {
@@ -62,8 +66,8 @@ pub(crate) struct Watch {
 }
 
 impl Watch {
-    pub fn run(mut self, config: Config) {
-        self.setup(config);
+    pub fn run(mut self) {
+        self.setup();
 
         let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(self.args.delay.unwrap())).unwrap();
@@ -95,7 +99,11 @@ impl Watch {
         }
     }
 
-    fn setup(&mut self, config: Config) {
+    fn setup(&mut self) {
+        let config = Config::from_path(local_config_path())
+            .or_else(|_| Config::from_path(global_config_path()))
+            .unwrap_or(Config::default());
+
         let args = &mut self.args;
         setup_field!(args, config, delay);
         setup_field!(args, config, ignore);

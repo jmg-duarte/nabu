@@ -1,7 +1,15 @@
 [package]
-name = "seshat"
+name = "nabu"
 version = "0.0.1-rc0"
+authors = ["José Duarte <duarte.gmj@gmail.com>"]
 edition = "2021"
+license = "MIT or Apache-2.0"
+description = "Keep your work commited and your repository up-to-date!"
+repository = "https://github.com/jmg-duarte/nabu"
+documentation = "https://docs.rs/nabu"
+readme = "README.md"
+keywords = ["git"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 notify = "4"
@@ -17,7 +25,6 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 
 color-eyre = "0.5"
-# thiserror = "1.0"
 
 flexi_logger = "0.22"
 log = "0.4"

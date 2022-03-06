@@ -14,13 +14,13 @@ fn default_delay() -> u64 {
 }
 
 pub fn global_config_path() -> PathBuf {
-    let path = std::env::var("HOME").unwrap() + "/.config/seshat.toml";
+    let path = std::env::var("HOME").unwrap() + "/.config/nabu.toml";
     PathBuf::from(path)
 }
 
 pub fn local_config_path() -> PathBuf {
     let mut path_buf = current_dir().unwrap();
-    path_buf.push("seshat.toml");
+    path_buf.push("nabu.toml");
     path_buf
 }
 
