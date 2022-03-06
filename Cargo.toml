@@ -3,13 +3,14 @@ name = "nabu"
 version = "0.0.1-rc0"
 authors = ["José Duarte <duarte.gmj@gmail.com>"]
 edition = "2021"
-license = "MIT or Apache-2.0"
+license = "MIT OR Apache-2.0"
 description = "Keep your work commited and your repository up-to-date!"
 repository = "https://github.com/jmg-duarte/nabu"
 documentation = "https://docs.rs/nabu"
 readme = "README.md"
 keywords = ["git"]
 categories = ["command-line-utilities"]
+exclude = ["static/*"]
 
 [dependencies]
 notify = "4"
