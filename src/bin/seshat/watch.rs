@@ -1,8 +1,12 @@
-use seshat::{fs::list_subdirs, git::WatchedRepository};
+use log::{debug, error};
+use seshat::{
+    config::Config,
+    fs::{current_dir_string, list_subdirs},
+    git::WatchedRepository,
+};
 
 use std::{
     collections::HashSet,
-    env::current_dir,
     ffi::OsStr,
     sync::mpsc::{channel, Receiver, Sender},
     time::Duration,
@@ -11,15 +15,26 @@ use std::{
 use clap::Args;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-/// Default watcher delay (in seconds).
-const DEFAULT_DELAY: u64 = 30;
-
-fn default_config_path() -> String {
-    std::env::var("HOME").unwrap() + "/.config/seshat.toml"
+macro_rules! handle_event {
+    ($path:ident, $message:literal) => {{
+        let commit_message = format!($message, $path.to_str().unwrap(), chrono::Utc::now());
+        ::log::info!("commit with message: {}", commit_message);
+        ($path, commit_message)
+    }};
 }
 
-fn current_dir_string() -> String {
-    String::from(current_dir().unwrap().to_str().unwrap())
+macro_rules! setup_field {
+    ($into:ident, $from:ident, $field:ident) => {
+        if $into.$field.is_none() {
+            debug!("reading (`{}={:?}`) from the config", stringify!($field), $from.$field);
+            $into.$field = Some($from.$field)
+        }
+    };
+
+    ($into:ident, $from:ident, $field:ident, $($fields:ident),+) => {
+        setup_field!($from, $into, $field)
+        setup_field!($from, $into, $fields)
+    };
 }
 
 #[derive(Args)]
@@ -30,23 +45,15 @@ pub(crate) struct WatchArgs {
     /// Whether to watch sub-directories.
     #[clap(short, long)]
     recursive: bool,
-    /// Path to the configuration file.
-    #[clap(short, long, default_value_t=default_config_path())]
-    config: String,
     /// Watch over directory and print commands not performing them.
     #[clap(long)]
     dry_run: bool,
-    #[clap(long, default_value_t=DEFAULT_DELAY)]
-    delay: u64,
-}
-
-macro_rules! handle_event {
-    ($path:ident, $message:literal) => {
-        (
-            $path,
-            format!($message, $path.to_str().unwrap(), chrono::Utc::now()),
-        )
-    };
+    /// Watcher event delay.
+    #[clap(long)]
+    delay: Option<u64>,
+    /// List of directories to ignore.
+    #[clap(long)]
+    ignore: Option<Vec<String>>,
 }
 
 pub(crate) struct Watch {
@@ -55,31 +62,47 @@ pub(crate) struct Watch {
 }
 
 impl Watch {
-    pub fn run(self) {
-        let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(self.args.delay)).unwrap();
+    pub fn run(mut self, config: Config) {
+        self.setup(config);
 
-        let directories = list_subdirs(
-            &self.args.directory,
-            HashSet::from_iter(vec![".obsidian", ".git"].into_iter().map(|s| OsStr::new(s))),
-        );
+        let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
+        let mut watcher = watcher(tx, Duration::from_secs(self.args.delay.unwrap())).unwrap();
+
+        let ignored_set = {
+            let osstr_ignored: Option<Vec<&OsStr>> = self
+                .args
+                .ignore
+                .as_ref()
+                .and_then(|v| Some(v.iter().map(|s| OsStr::new(s)).collect()));
+
+            let mut set = HashSet::new();
+            set.extend(osstr_ignored.unwrap().into_iter());
+            set
+        };
+        let directories = list_subdirs(&self.args.directory, ignored_set);
 
         for dir in &directories {
             watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
         }
 
-        println!("Watching over {:#?}", directories);
+        debug!("watching over {:?}", directories);
 
         loop {
             match rx.recv() {
                 Ok(event) => self.handle_event(&event, &self.repo),
-                Err(e) => println!("watch error: {:?}", e),
+                Err(e) => error!("watch error: {:?}", e),
             }
         }
     }
 
+    fn setup(&mut self, config: Config) {
+        let args = &mut self.args;
+        setup_field!(args, config, delay);
+        setup_field!(args, config, ignore);
+    }
+
     fn handle_event(&self, event: &DebouncedEvent, repo: &WatchedRepository) {
-        println!("{:?}", event);
+        debug!("received event: {:?}", event);
         // TODO: better commit messages (e.g. short title, descriptive body)
         // TODO: configurable commit messages
         let (path, message) = match event {

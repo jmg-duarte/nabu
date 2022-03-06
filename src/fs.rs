@@ -1,4 +1,9 @@
-use std::{collections::HashSet, ffi::OsStr, path::{Path, PathBuf}};
+use std::{
+    collections::HashSet,
+    env::current_dir,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use walkdir::WalkDir;
 
@@ -12,4 +17,8 @@ where
         .filter_map(|r| r.ok())
         .map(|entry| entry.into_path())
         .collect()
+}
+
+pub fn current_dir_string() -> String {
+    String::from(current_dir().unwrap().to_str().unwrap())
 }
