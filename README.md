@@ -3,6 +3,10 @@
 > Nabu was the patron god of scribes, literacy, and wisdom.
 > He was also the inventor of writing, a divine scribe...
 
+```bash
+$ cargo install nabu
+```
+
 Nabu brings [Dura](https://github.com/tkellogg/dura) to the foreground;
 the main use case for Nabu is to keep your work committed.
 
