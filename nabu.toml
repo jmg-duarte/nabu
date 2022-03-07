@@ -1,2 +1,2 @@
 delay = 30
-ignore = []
+ignore = ["target", ".git"]

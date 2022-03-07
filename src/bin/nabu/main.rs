@@ -4,10 +4,17 @@ mod watch;
 use flexi_logger::Logger;
 use init::InitArgs;
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use watch::{Watch, WatchArgs};
 
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
+
+use ctrlc;
 
 #[derive(Parser)]
 struct Cli {
@@ -31,11 +38,18 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
+
     let level = if cli.debug { "debug" } else { "info" };
     Logger::try_with_str(level)?.start()?;
 
     match cli.commands {
-        Commands::Watch(args) => Watch::from(args).run(),
+        Commands::Watch(args) => Watch::new(args, running).run(),
         Commands::Init(init) => init.run(),
     }
 
