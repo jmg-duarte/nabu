@@ -1,4 +1,3 @@
-use log::{debug, error};
 use nabu::{
     config::{global_config_path, local_config_path, Config},
     fs::list_subdirs,
@@ -9,11 +8,16 @@ use std::{
     collections::HashSet,
     ffi::OsStr,
     path::PathBuf,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        mpsc::{channel, Receiver, Sender, RecvTimeoutError},
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
 use clap::Args;
+use log::{debug, error};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 macro_rules! handle_event {
@@ -63,9 +67,19 @@ pub(crate) struct WatchArgs {
 pub(crate) struct Watch {
     args: WatchArgs,
     repo: WatchedRepository,
+    running: Arc<AtomicBool>,
 }
 
 impl Watch {
+    pub fn new(args: WatchArgs, running: Arc<AtomicBool>) -> Self {
+        let directory = args.directory.clone();
+        Self {
+            args,
+            repo: WatchedRepository::new(directory).unwrap(),
+            running,
+        }
+    }
+
     pub fn run(mut self) {
         self.setup();
 
@@ -91,10 +105,14 @@ impl Watch {
 
         debug!("watching over {:?}", directories);
 
-        loop {
-            match rx.recv() {
-                Ok(event) => self.handle_event(&event, &self.repo),
-                Err(e) => error!("watch error: {:?}", e),
+        while self.running.load(Ordering::SeqCst) {
+            match rx.recv_timeout(Duration::from_millis(500)) {
+                Ok(event) => {
+                    debug!("event received: {:?}", &event);
+                    self.handle_event(&event, &self.repo)
+                },
+                Err(RecvTimeoutError::Disconnected) => error!("sender disconnected"),
+                _ => {},
             }
         }
     }
@@ -142,15 +160,5 @@ impl Watch {
 
         repo.stage(path).unwrap();
         repo.commit(&message).unwrap();
-    }
-}
-
-impl From<WatchArgs> for Watch {
-    fn from(args: WatchArgs) -> Self {
-        let directory = args.directory.clone();
-        Self {
-            args,
-            repo: WatchedRepository::new(directory).unwrap(),
-        }
     }
 }
