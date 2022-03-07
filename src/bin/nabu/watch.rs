@@ -114,7 +114,12 @@ impl Watch {
         // TODO: better commit messages (e.g. short title, descriptive body)
         // TODO: configurable commit messages
         let (path, message) = match event {
-            DebouncedEvent::Create(path) => handle_event!(path, "created file {} @ {}"),
+            DebouncedEvent::Create(path) => {
+                if path.is_dir() {
+                    return;
+                }
+                handle_event!(path, "created file {} @ {}")
+            }
             DebouncedEvent::Write(path) => handle_event!(path, "written file {} @ {}"),
             DebouncedEvent::Chmod(path) => handle_event!(path, "chmod file {} @ {}"),
             DebouncedEvent::Remove(path) => handle_event!(path, "deleted file {} @ {}"),
