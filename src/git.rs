@@ -22,11 +22,15 @@ impl WatchedRepository {
         P: AsRef<Path>,
     {
         // TODO: find a way to handle the unwraps cleanly
-        self.0.index()?.add_path(
+        let mut index = self.0.index()?;
+        index.add_path(
             path.as_ref()
                 .strip_prefix(self.0.path().parent().unwrap())
                 .unwrap(),
-        )
+        )?;
+        index.write()?;
+        Ok(())
+    }
     }
 
     pub fn commit(&self, message: &str) -> Result<()> {
