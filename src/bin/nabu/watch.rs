@@ -18,7 +18,7 @@ use std::{
 
 use clap::Args;
 use color_eyre::Result;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 macro_rules! handle_event {
@@ -63,6 +63,9 @@ pub(crate) struct WatchArgs {
     /// Path to the configuration file.
     #[clap(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
+    /// Whether to push on exit.
+    #[clap(long)]
+    push_on_exit: Option<bool>,
 }
 
 pub(crate) struct Watch {
@@ -117,6 +120,22 @@ impl Watch {
                 _ => {}
             }
         }
+
+        self.repo.stage_all().unwrap();
+        self.repo
+            .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
+            .unwrap();
+
+        if let Some(true) = self.args.push_on_exit {
+            match self.repo.push() {
+                Ok(()) => {
+                    info!("successfully pushed");
+                }
+                Err(err) => {
+                    warn!("{}", err.message());
+                }
+            }
+        }
     }
 
     fn setup(&mut self) {
@@ -127,6 +146,7 @@ impl Watch {
         let args = &mut self.args;
         setup_field!(args, config, delay);
         setup_field!(args, config, ignore);
+        setup_field!(args, config, push_on_exit);
     }
 
     fn handle_event(&self, event: &DebouncedEvent, repo: &WatchedRepository) {

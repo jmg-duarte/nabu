@@ -30,6 +30,9 @@ pub struct Config {
     pub delay: u64,
     #[serde(default = "Vec::new")]
     pub ignore: Vec<String>,
+    // https://github.com/serde-rs/serde/issues/1030
+    #[serde(default = "bool::default")]
+    pub push_on_exit: bool,
 }
 
 impl Config {
@@ -47,6 +50,7 @@ impl Default for Config {
         Self {
             delay: DEFAULT_DELAY,
             ignore: vec![],
+            push_on_exit: false,
         }
     }
 }
