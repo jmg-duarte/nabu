@@ -47,9 +47,7 @@ fn main() -> Result<()> {
     .expect("Error setting Ctrl-C handler");
 
     let level = if cli.debug { "debug" } else { "info" };
-    let mut logger = Logger::try_with_str(level)?;
-    logger = logger.use_utc();
-    logger.start()?;
+    let mut _logger = Logger::try_with_str(level)?.use_utc().start()?;
 
     match cli.commands {
         Commands::Watch(args) => Watch::new(args, running).run(),
