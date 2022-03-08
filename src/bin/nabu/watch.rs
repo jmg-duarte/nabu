@@ -9,15 +9,16 @@ use std::{
     ffi::OsStr,
     path::PathBuf,
     sync::{
-        mpsc::{channel, Receiver, Sender, RecvTimeoutError},
-        Arc,
         atomic::{AtomicBool, Ordering},
+        mpsc::{channel, Receiver, RecvTimeoutError, Sender},
+        Arc,
     },
     time::Duration,
 };
 
 use clap::Args;
-use log::{debug, error};
+use color_eyre::Result;
+use log::{debug, error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 macro_rules! handle_event {
@@ -71,13 +72,14 @@ pub(crate) struct Watch {
 }
 
 impl Watch {
-    pub fn new(args: WatchArgs, running: Arc<AtomicBool>) -> Self {
-        let directory = args.directory.clone();
-        Self {
+    pub fn new(args: WatchArgs, running: Arc<AtomicBool>) -> Result<Self> {
+        let directory = args.directory.clone().canonicalize()?;
+        info!("{}", directory.display());
+        Ok(Self {
             args,
-            repo: WatchedRepository::new(directory).unwrap(),
+            repo: WatchedRepository::new(directory)?,
             running,
-        }
+        })
     }
 
     pub fn run(mut self) {
@@ -110,9 +112,9 @@ impl Watch {
                 Ok(event) => {
                     debug!("event received: {:?}", &event);
                     self.handle_event(&event, &self.repo)
-                },
+                }
                 Err(RecvTimeoutError::Disconnected) => error!("sender disconnected"),
-                _ => {},
+                _ => {}
             }
         }
     }

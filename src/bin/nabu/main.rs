@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     Logger::try_with_str(level)?.use_utc().start()?;
 
     match cli.commands {
-        Commands::Watch(args) => Watch::new(args, running).run(),
+        Commands::Watch(args) => Watch::new(args, running)?.run(),
         Commands::Init(init) => init.run(),
     }
 
