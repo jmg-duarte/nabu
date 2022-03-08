@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git2::PushOptions;
+use git2::{IndexAddOption, PushOptions};
 
 type Result<T> = std::result::Result<T, git2::Error>;
 
@@ -31,6 +31,12 @@ impl WatchedRepository {
         index.write()?;
         Ok(())
     }
+
+    pub fn stage_all(&self) -> Result<()> {
+        let mut index = self.0.index()?;
+        index.add_all(["*"].iter(), IndexAddOption::CHECK_PATHSPEC, None)?;
+        index.write()?;
+        Ok(())
     }
 
     pub fn commit(&self, message: &str) -> Result<()> {
