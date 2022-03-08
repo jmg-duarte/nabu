@@ -43,10 +43,13 @@ fn main() -> Result<()> {
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
-    }).expect("Error setting Ctrl-C handler");
+    })
+    .expect("Error setting Ctrl-C handler");
 
     let level = if cli.debug { "debug" } else { "info" };
-    Logger::try_with_str(level)?.start()?;
+    let mut logger = Logger::try_with_str(level)?;
+    logger = logger.use_utc();
+    logger.start()?;
 
     match cli.commands {
         Commands::Watch(args) => Watch::new(args, running).run(),
