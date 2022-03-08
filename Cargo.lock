@@ -530,7 +530,7 @@ dependencies = [
 
 [[package]]
 name = "nabu"
-version = "0.0.1-rc0"
+version = "0.0.3-rc0"
 dependencies = [
  "chrono",
  "clap",
