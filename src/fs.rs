@@ -15,7 +15,8 @@ where
         .into_iter()
         .filter_entry(|entry| entry.file_type().is_dir() && !ignored.contains(entry.file_name()))
         .filter_map(|r| r.ok())
-        .map(|entry| entry.into_path())
+        // TODO: handle the error gracefully
+        .map(|entry| entry.into_path().canonicalize().unwrap())
         .collect()
 }
 
