@@ -1,6 +1,8 @@
+use std::env::current_dir;
+
 use clap::Args;
 use log::info;
-use nabu::config::{global_config_path, local_config_path, Config};
+use nabu::config::{global_config_path, Config};
 
 #[derive(Args)]
 pub(crate) struct InitArgs {
@@ -16,7 +18,8 @@ impl InitArgs {
         let path = if self.global {
             global_config_path()
         } else {
-            local_config_path()
+            // TODO: this is wrong, the correct directory should be an argument passed to init
+            current_dir().unwrap()
         };
         std::fs::write(&path, config_toml).unwrap();
         info!("config file written to {}", path.display());
