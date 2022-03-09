@@ -1,5 +1,4 @@
 use std::{
-    env::current_dir,
     path::{Path, PathBuf},
 };
 
