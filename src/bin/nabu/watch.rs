@@ -1,9 +1,8 @@
 use nabu::{
-    config::{global_config_path, local_config_path, Config},
+    config::{global_config_path, Config},
     fs::list_subdirs,
     git::WatchedRepository,
 };
-
 use std::{
     collections::HashSet,
     ffi::OsStr,
@@ -29,43 +28,52 @@ macro_rules! handle_event {
     }};
 }
 
-macro_rules! setup_field {
-    ($into:ident, $from:ident, $field:ident) => {
-        if $into.$field.is_none() {
-            debug!("reading (`{}={:?}`) from the config", stringify!($field), $from.$field);
-            $into.$field = Some($from.$field)
-        }
-    };
-
-    ($into:ident, $from:ident, $field:ident, $($fields:ident),+) => {
-        setup_field!($from, $into, $field)
-        setup_field!($from, $into, $fields)
-    };
-}
-
 #[derive(Args)]
 pub(crate) struct WatchArgs {
     /// The directory to watch over.
     #[clap(parse(from_os_str))]
     directory: PathBuf,
+
     /// Whether to watch sub-directories.
     #[clap(short, long)]
     recursive: bool,
+
     /// Watch over directory and print commands not performing them.
     #[clap(long)]
     dry_run: bool,
+
     /// Watcher event delay.
     #[clap(long)]
     delay: Option<u64>,
+
     /// List of directories to ignore.
     #[clap(long)]
-    ignore: Option<Vec<String>>,
+    ignore: Vec<String>,
+
     /// Path to the configuration file.
     #[clap(short, long, parse(from_os_str))]
     config: Option<PathBuf>,
+
     /// Whether to push on exit.
+    /// If not set, the value will be read from the config.
     #[clap(long)]
-    push_on_exit: Option<bool>,
+    push_on_exit: bool,
+}
+
+impl WatchArgs {
+    fn update_with_config(&mut self, config: &Config) {
+        if self.delay.is_none() {
+            self.delay = Some(config.delay);
+        }
+
+        if self.ignore.is_empty() {
+            self.ignore = config.ignore.clone();
+        }
+
+        if !self.push_on_exit {
+            self.push_on_exit |= config.push_on_exit;
+        }
+    }
 }
 
 pub(crate) struct Watch {
@@ -86,22 +94,25 @@ impl Watch {
     }
 
     pub fn run(mut self) {
-        self.setup();
+        let mut local_config_path = self.args.directory.clone();
+        local_config_path.push("nabu.toml");
+
+        let config = Config::from_path(&local_config_path)
+            .or_else(|_| Config::from_path(global_config_path()))
+            .unwrap_or(Config::default());
+
+        self.args.update_with_config(&config);
 
         let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(self.args.delay.unwrap())).unwrap();
 
-        let ignored_set = {
-            let osstr_ignored: Option<Vec<&OsStr>> = self
-                .args
-                .ignore
-                .as_ref()
-                .and_then(|v| Some(v.iter().map(|s| OsStr::new(s)).collect()));
+        let ignored_set = self
+            .args
+            .ignore
+            .iter()
+            .map(|s| OsStr::new(s))
+            .collect::<HashSet<&OsStr>>();
 
-            let mut set = HashSet::new();
-            set.extend(osstr_ignored.unwrap().into_iter());
-            set
-        };
         let directories = list_subdirs(&self.args.directory, ignored_set);
 
         for dir in &directories {
@@ -126,7 +137,7 @@ impl Watch {
             .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
             .unwrap();
 
-        if let Some(true) = self.args.push_on_exit {
+        if self.args.push_on_exit {
             match self.repo.push() {
                 Ok(()) => {
                     info!("successfully pushed");
@@ -136,17 +147,6 @@ impl Watch {
                 }
             }
         }
-    }
-
-    fn setup(&mut self) {
-        let config = Config::from_path(local_config_path())
-            .or_else(|_| Config::from_path(global_config_path()))
-            .unwrap_or(Config::default());
-
-        let args = &mut self.args;
-        setup_field!(args, config, delay);
-        setup_field!(args, config, ignore);
-        setup_field!(args, config, push_on_exit);
     }
 
     fn handle_event(&self, event: &DebouncedEvent, repo: &WatchedRepository) {
