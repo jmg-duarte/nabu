@@ -91,7 +91,7 @@ impl Repository for WatchedRepository {
         let mut remote = repo.find_remote("origin")?;
 
         let head = repo.head()?;
-        let refspecs: &[&str] = &[&head.name().unwrap()];
+        let refspecs: &[&str] = &[head.name().unwrap()];
 
         let mut remote_callbacks = git2::RemoteCallbacks::new();
 

@@ -97,7 +97,7 @@ impl WatchArgs {
 
         let config = Config::from_path(&local_config_path)
             .or_else(|_| Config::from_path(global_config_path()))
-            .unwrap_or(Config::default());
+            .unwrap_or_default();
 
         if self.delay.is_none() {
             self.delay = Some(config.delay);
@@ -116,7 +116,7 @@ impl WatchArgs {
         let ignored_set = self
             .ignore
             .iter()
-            .map(|s| OsStr::new(s))
+            .map(OsStr::new)
             .collect::<HashSet<&OsStr>>();
 
         list_subdirs(&self.directory, ignored_set)

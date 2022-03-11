@@ -14,8 +14,6 @@ use watch::WatchArgs;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 
-use ctrlc;
-
 #[derive(Parser)]
 struct Cli {
     #[clap(subcommand)]
