@@ -45,7 +45,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             delay: DEFAULT_DELAY,
-            ignore: vec![],
+            ignore: vec![String::from(".git")],
             push_on_exit: false,
         }
     }
