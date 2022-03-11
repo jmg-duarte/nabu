@@ -159,6 +159,7 @@ where
         let mut watcher = watcher(tx, Duration::from_secs(self.delay)).unwrap();
 
         for dir in &self.watchlist {
+            info!("adding {} to watcher", dir.display());
             watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
         }
 
