@@ -1,11 +1,27 @@
 use std::path::Path;
 
 use git2::{IndexAddOption, PushOptions};
-use log::error;
+use log::{error, info};
 
 type Result<T> = std::result::Result<T, git2::Error>;
 
 const HEAD: &str = "HEAD";
+
+pub trait Repository {
+    /// Stage a file path.
+    fn stage<P>(&self, path: P) -> Result<()>
+    where
+        P: AsRef<Path>;
+
+    /// Stage all files.
+    fn stage_all(&self) -> Result<()>;
+
+    /// Commit staged files with a message.
+    fn commit(&self, message: &str) -> Result<()>;
+
+    /// Push commits to the remote.
+    fn push(&self) -> Result<()>;
+}
 
 pub struct WatchedRepository(git2::Repository);
 
@@ -17,8 +33,10 @@ impl WatchedRepository {
     {
         Ok(Self(git2::Repository::open(path)?))
     }
+}
 
-    pub fn stage<P>(&self, path: P) -> Result<()>
+impl Repository for WatchedRepository {
+    fn stage<P>(&self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -33,14 +51,14 @@ impl WatchedRepository {
         Ok(())
     }
 
-    pub fn stage_all(&self) -> Result<()> {
+    fn stage_all(&self) -> Result<()> {
         let mut index = self.0.index()?;
         index.add_all(["*"].iter(), IndexAddOption::CHECK_PATHSPEC, None)?;
         index.write()?;
         Ok(())
     }
 
-    pub fn commit(&self, message: &str) -> Result<()> {
+    fn commit(&self, message: &str) -> Result<()> {
         let repo = &self.0;
         // Find the current tree
         let tree_oid = repo.index()?.write_tree()?;
@@ -66,16 +84,18 @@ impl WatchedRepository {
 
     /// Pushes the current branch into "origin".
     /// The function relies on `ssh-agent` for git authentication.
-    pub fn push(&self) -> Result<()> {
+    fn push(&self) -> Result<()> {
         let repo = &self.0;
 
+        // TODO: allow remote to be configurable
         let mut remote = repo.find_remote("origin")?;
 
         let head = repo.head()?;
-        let refspecs: &[&str] = &[&head.name().unwrap()];
+        let refspecs: &[&str] = &[head.name().unwrap()];
 
         let mut remote_callbacks = git2::RemoteCallbacks::new();
 
+        // TODO: allow usage of other authentication methods (e.g. ssh keys)
         remote_callbacks.credentials(|_url, username_from_url, _allowed_types| {
             git2::Cred::ssh_key_from_agent(username_from_url.unwrap())
         });
@@ -93,6 +113,33 @@ impl WatchedRepository {
         push_options.remote_callbacks(remote_callbacks);
 
         remote.push(refspecs, Some(&mut push_options))?;
+        Ok(())
+    }
+}
+
+pub struct DummyRepository;
+
+impl Repository for DummyRepository {
+    fn stage<P>(&self, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        info!("staged file {}", path.as_ref().display());
+        Ok(())
+    }
+
+    fn stage_all(&self) -> Result<()> {
+        info!("staged all files");
+        Ok(())
+    }
+
+    fn commit(&self, message: &str) -> Result<()> {
+        info!("commited staged files with message: {}", message);
+        Ok(())
+    }
+
+    fn push(&self) -> Result<()> {
+        info!("pushed files to remote");
         Ok(())
     }
 }

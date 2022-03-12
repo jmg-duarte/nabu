@@ -1,14 +1,13 @@
-use std::{
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use color_eyre::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
 
 /// Default watcher delay (in seconds).
-const DEFAULT_DELAY: u64 = 30;
+pub const DEFAULT_DELAY: u64 = 30;
 
+#[inline(always)]
 fn default_delay() -> u64 {
     DEFAULT_DELAY
 }
@@ -17,12 +16,6 @@ pub fn global_config_path() -> PathBuf {
     let path = std::env::var("HOME").unwrap() + "/.config/nabu.toml";
     PathBuf::from(path)
 }
-
-// pub fn local_config_path() -> PathBuf {
-//     let mut path_buf = current_dir().unwrap();
-//     path_buf.push("nabu.toml");
-//     path_buf
-// }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -52,7 +45,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             delay: DEFAULT_DELAY,
-            ignore: vec![],
+            ignore: vec![String::from(".git")],
             push_on_exit: false,
         }
     }

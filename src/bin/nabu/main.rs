@@ -9,12 +9,10 @@ use std::sync::{
     Arc,
 };
 
-use watch::{Watch, WatchArgs};
+use watch::WatchArgs;
 
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
-
-use ctrlc;
 
 #[derive(Parser)]
 struct Cli {
@@ -38,8 +36,8 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+    let watching = Arc::new(AtomicBool::new(true));
+    let r = watching.clone();
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
@@ -50,7 +48,9 @@ fn main() -> Result<()> {
     Logger::try_with_str(level)?.use_utc().start()?;
 
     match cli.commands {
-        Commands::Watch(args) => Watch::new(args, running)?.run(),
+        Commands::Watch(args) => {
+            args.run(watching)?;
+        }
         Commands::Init(init) => init.run(),
     }
 

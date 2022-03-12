@@ -18,8 +18,9 @@ impl InitArgs {
         let path = if self.global {
             global_config_path()
         } else {
-            // TODO: this is wrong, the correct directory should be an argument passed to init
-            current_dir().unwrap()
+            let mut local_config_path = current_dir().unwrap();
+            local_config_path.push("nabu.toml");
+            local_config_path
         };
         std::fs::write(&path, config_toml).unwrap();
         info!("config file written to {}", path.display());

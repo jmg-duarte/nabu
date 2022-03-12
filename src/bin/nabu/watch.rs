@@ -1,8 +1,9 @@
 use nabu::{
-    config::{global_config_path, Config},
+    config::{global_config_path, Config, DEFAULT_DELAY},
     fs::list_subdirs,
-    git::WatchedRepository,
+    git::{DummyRepository, Repository, WatchedRepository},
 };
+
 use std::{
     collections::HashSet,
     ffi::OsStr,
@@ -61,7 +62,43 @@ pub(crate) struct WatchArgs {
 }
 
 impl WatchArgs {
-    fn update_with_config(&mut self, config: &Config) {
+    pub fn run(mut self, watching: Arc<AtomicBool>) -> Result<()> {
+        self.update_from_config();
+        let watched_directories = self.list_watched_directories();
+        let delay = self.delay.unwrap_or(DEFAULT_DELAY);
+        if self.dry_run {
+            Watch::new(
+                DummyRepository,
+                watching,
+                watched_directories,
+                delay,
+                self.push_on_exit,
+            )
+            .run();
+        } else {
+            let directory = self.directory.clone().canonicalize()?;
+            info!("{}", directory.display());
+            let repo = WatchedRepository::new(directory)?;
+            Watch::new(
+                repo,
+                watching,
+                watched_directories,
+                delay,
+                self.push_on_exit,
+            )
+            .run();
+        }
+        Ok(())
+    }
+
+    pub fn update_from_config(&mut self) {
+        let mut local_config_path = self.directory.clone();
+        local_config_path.push("nabu.toml");
+
+        let config = Config::from_path(&local_config_path)
+            .or_else(|_| Config::from_path(global_config_path()))
+            .unwrap_or_default();
+
         if self.delay.is_none() {
             self.delay = Some(config.delay);
         }
@@ -74,52 +111,59 @@ impl WatchArgs {
             self.push_on_exit |= config.push_on_exit;
         }
     }
-}
 
-pub(crate) struct Watch {
-    args: WatchArgs,
-    repo: WatchedRepository,
-    running: Arc<AtomicBool>,
-}
-
-impl Watch {
-    pub fn new(args: WatchArgs, running: Arc<AtomicBool>) -> Result<Self> {
-        let directory = args.directory.clone().canonicalize()?;
-        info!("{}", directory.display());
-        Ok(Self {
-            args,
-            repo: WatchedRepository::new(directory)?,
-            running,
-        })
-    }
-
-    pub fn run(mut self) {
-        let mut local_config_path = self.args.directory.clone();
-        local_config_path.push("nabu.toml");
-
-        let config = Config::from_path(&local_config_path)
-            .or_else(|_| Config::from_path(global_config_path()))
-            .unwrap_or(Config::default());
-
-        self.args.update_with_config(&config);
-
-        let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(self.args.delay.unwrap())).unwrap();
-
+    pub fn list_watched_directories(&self) -> Vec<PathBuf> {
         let ignored_set = self
-            .args
             .ignore
             .iter()
-            .map(|s| OsStr::new(s))
+            .map(OsStr::new)
             .collect::<HashSet<&OsStr>>();
 
-        let directories = list_subdirs(&self.args.directory, ignored_set);
+        list_subdirs(&self.directory, ignored_set)
+    }
+}
 
-        for dir in &directories {
+pub(crate) struct Watch<R>
+where
+    R: Repository,
+{
+    repo: R,
+    running: Arc<AtomicBool>,
+    watchlist: Vec<PathBuf>,
+    delay: u64,
+    push_on_exit: bool,
+}
+
+impl<R> Watch<R>
+where
+    R: Repository,
+{
+    pub fn new(
+        repo: R,
+        running: Arc<AtomicBool>,
+        watchlist: Vec<PathBuf>,
+        delay: u64,
+        push_on_exit: bool,
+    ) -> Self {
+        Self {
+            repo,
+            running,
+            watchlist,
+            delay,
+            push_on_exit,
+        }
+    }
+
+    pub fn run(self) {
+        let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
+        let mut watcher = watcher(tx, Duration::from_secs(self.delay)).unwrap();
+
+        for dir in &self.watchlist {
+            info!("adding {} to watcher", dir.display());
             watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
         }
 
-        debug!("watching over {:?}", directories);
+        debug!("watching over {:?}", &self.watchlist);
 
         while self.running.load(Ordering::SeqCst) {
             match rx.recv_timeout(Duration::from_millis(500)) {
@@ -137,7 +181,7 @@ impl Watch {
             .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
             .unwrap();
 
-        if self.args.push_on_exit {
+        if self.push_on_exit {
             match self.repo.push() {
                 Ok(()) => {
                     info!("successfully pushed");
@@ -149,7 +193,10 @@ impl Watch {
         }
     }
 
-    fn handle_event(&self, event: &DebouncedEvent, repo: &WatchedRepository) {
+    fn handle_event(&self, event: &DebouncedEvent, repo: &R)
+    where
+        R: Repository,
+    {
         debug!("received event: {:?}", event);
         // TODO: better commit messages (e.g. short title, descriptive body)
         // TODO: configurable commit messages
