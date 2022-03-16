@@ -176,6 +176,9 @@ where
             }
         }
 
+        // TODO: think of a better log
+        info!("Termination signal received.")
+
         self.repo.stage_all().unwrap();
         self.repo
             .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
