@@ -180,18 +180,20 @@ where
             }
         }
 
-        // TODO: think of a better log
-        info!("Termination signal received.");
+        info!("Termination signal received, attempting to save changes.");
 
         self.repo.stage_all().unwrap();
+        info!("Staged changes.");
         self.repo
             .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
             .unwrap();
 
+        info!("Commited changes.");
+
         if self.push_on_exit {
             match self.repo.push() {
                 Ok(()) => {
-                    info!("successfully pushed");
+                    info!("Successfully pushed to remote.");
                 }
                 Err(err) => {
                     warn!("{}", err.message());
