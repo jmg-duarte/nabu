@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::path::{Path, PathBuf};
 
 use clap::ArgEnum;
 use git2::{IndexAddOption, PushOptions};
@@ -11,8 +11,8 @@ const HEAD: &str = "HEAD";
 #[derive(ArgEnum, Clone)]
 pub enum AuthenticationMethod {
     SshAgent,
-    SshKey,
-    Https,
+    SshKey { path: PathBuf, passphrase: String },
+    Https { username: String, password: String },
 }
 
 pub trait Repository {
@@ -110,29 +110,26 @@ impl Repository for WatchedRepository {
                     git2::Cred::ssh_key_from_agent(username_from_url.unwrap())
                 });
             }
-            AuthenticationMethod::SshKey => {
-                remote_callbacks.credentials(|_url, username_from_url, _allowed_types| {
+            AuthenticationMethod::SshKey {
+                path: private_key_path,
+                passphrase: key_passphrase,
+            } => {
+                remote_callbacks.credentials(move |_url, username_from_url, _allowed_types| {
                     git2::Cred::ssh_key(
                         username_from_url.unwrap(),
-                        Some(std::path::Path::new(&format!(
-                            "{}/.ssh/id_ed25519.pub",
-                            env::var("HOME").unwrap()
-                        ))),
-                        std::path::Path::new(&format!(
-                            "{}/.ssh/id_ed25519",
-                            env::var("HOME").unwrap()
-                        )), // TODO(tomasalagoa) customize key path
-                        None, // TODO(tomasalagoa) customize key passphrase
+                        Some(&private_key_path.clone().with_extension("pub")),
+                        &private_key_path,
+                        Some(&key_passphrase.clone()),
                     )
                 });
             }
-            AuthenticationMethod::Https => {
-                remote_callbacks.credentials(|_url, _username_from_url, _allowed_types| {
+            AuthenticationMethod::Https {
+                username: https_username,
+                password: https_password,
+            } => {
+                remote_callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
                     // TODO get password and username from some config
-                    git2::Cred::userpass_plaintext(
-                        &env::var("GITHUB_USERNAME").unwrap(),
-                        &env::var("GITHUB_PASSWORD").unwrap(),
-                    )
+                    git2::Cred::userpass_plaintext(&https_username, &https_password)
                 });
             }
         };
