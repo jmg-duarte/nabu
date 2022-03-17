@@ -92,12 +92,16 @@ impl WatchArgs {
     }
 
     pub fn update_from_config(&mut self) {
-        let mut local_config_path = self.directory.clone();
-        local_config_path.push("nabu.toml");
+        let config = if let Some(path) = &self.config {
+            Config::from_path(path).unwrap()
+        } else {
+            let mut local_config_path = self.directory.clone();
+            local_config_path.push("nabu.toml");
 
-        let config = Config::from_path(&local_config_path)
-            .or_else(|_| Config::from_path(global_config_path()))
-            .unwrap_or_default();
+            Config::from_path(&local_config_path)
+                .or_else(|_| Config::from_path(global_config_path()))
+                .unwrap_or_default()
+        };
 
         if self.delay.is_none() {
             self.delay = Some(config.delay);
@@ -177,7 +181,7 @@ where
         }
 
         // TODO: think of a better log
-        info!("Termination signal received.")
+        info!("Termination signal received.");
 
         self.repo.stage_all().unwrap();
         self.repo
