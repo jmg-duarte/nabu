@@ -114,8 +114,14 @@ impl Repository for WatchedRepository {
                 remote_callbacks.credentials(|_url, username_from_url, _allowed_types| {
                     git2::Cred::ssh_key(
                         username_from_url.unwrap(),
-                        None,
-                        std::path::Path::new(&format!("{}/.ssh/vaa", env::var("HOME").unwrap())), // TODO(tomasalagoa) customize key path
+                        Some(std::path::Path::new(&format!(
+                            "{}/.ssh/id_ed25519.pub",
+                            env::var("HOME").unwrap()
+                        ))),
+                        std::path::Path::new(&format!(
+                            "{}/.ssh/id_ed25519",
+                            env::var("HOME").unwrap()
+                        )), // TODO(tomasalagoa) customize key path
                         None, // TODO(tomasalagoa) customize key passphrase
                     )
                 });

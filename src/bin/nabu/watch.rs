@@ -29,6 +29,10 @@ macro_rules! handle_event {
     }};
 }
 
+const AUTHENTICATION_METHOD_GROUP_NAME: &str = "authentication_method_group";
+const HTTPS_GROUP_NAME: &str = "https_group";
+const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
+
 #[derive(Args)]
 pub(crate) struct WatchArgs {
     /// The directory to watch over.
@@ -60,9 +64,23 @@ pub(crate) struct WatchArgs {
     #[clap(long)]
     push_on_exit: bool,
 
-    /// Select authentication method.
-    #[clap(long, arg_enum)]
-    authentication_method: AuthenticationMethod,
+    #[clap(long, group(AUTHENTICATION_METHOD_GROUP_NAME))]
+    ssh_agent: bool,
+
+    #[clap(long, parse(from_os_str), groups(&[AUTHENTICATION_METHOD_GROUP_NAME, SSH_KEY_GROUP_NAME]))]
+    ssh_key: Option<PathBuf>,
+
+    #[clap(long, requires(SSH_KEY_GROUP_NAME))]
+    ssh_passphrase: Option<String>,
+
+    #[clap(long, groups(&[AUTHENTICATION_METHOD_GROUP_NAME, HTTPS_GROUP_NAME]))]
+    https: bool,
+
+    #[clap(short = 'u', long = "username", requires(HTTPS_GROUP_NAME))]
+    https_username: Option<String>,
+
+    #[clap(short = 'p', long = "password", requires(HTTPS_GROUP_NAME))]
+    https_password: Option<String>,
 }
 
 impl WatchArgs {
@@ -77,7 +95,6 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
-                self.authentication_method,
             )
             .run();
         } else {
@@ -90,7 +107,6 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
-                self.authentication_method,
             )
             .run();
         }
@@ -142,7 +158,6 @@ where
     watchlist: Vec<PathBuf>,
     delay: u64,
     push_on_exit: bool,
-    authentication_method: AuthenticationMethod,
 }
 
 impl<R> Watch<R>
@@ -155,7 +170,6 @@ where
         watchlist: Vec<PathBuf>,
         delay: u64,
         push_on_exit: bool,
-        authentication_method: AuthenticationMethod,
     ) -> Self {
         Self {
             repo,
@@ -163,7 +177,6 @@ where
             watchlist,
             delay,
             push_on_exit,
-            authentication_method,
         }
     }
 
@@ -200,7 +213,7 @@ where
         info!("Commited changes.");
 
         if self.push_on_exit {
-            match self.repo.push(self.authentication_method) {
+            match self.repo.push(AuthenticationMethod::Https) {
                 Ok(()) => {
                     info!("Successfully pushed to remote.");
                 }
