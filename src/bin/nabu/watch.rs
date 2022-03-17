@@ -32,6 +32,7 @@ macro_rules! handle_event {
 const AUTHENTICATION_METHOD_GROUP_NAME: &str = "authentication_method_group";
 const HTTPS_GROUP_NAME: &str = "https_group";
 const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
+const PUSH_GROUP_NAME: &str = "push_group";
 
 #[derive(Args)]
 pub(crate) struct WatchArgs {
@@ -61,15 +62,24 @@ pub(crate) struct WatchArgs {
 
     /// Whether to push on exit.
     /// If not set, the value will be read from the config.
-    #[clap(long)]
+    #[clap(long, group(PUSH_GROUP_NAME))]
     push_on_exit: bool,
 
     /// Use the ssh-agent as authenticaton method.
-    #[clap(long, group(AUTHENTICATION_METHOD_GROUP_NAME))]
+    #[clap(
+        long,
+        group(AUTHENTICATION_METHOD_GROUP_NAME),
+        requires(PUSH_GROUP_NAME)
+    )]
     ssh_agent: bool,
 
     /// Use the ssh-key as authentication method.
-    #[clap(long, parse(from_os_str), groups(&[AUTHENTICATION_METHOD_GROUP_NAME, SSH_KEY_GROUP_NAME]))]
+    #[clap(
+        long,
+        parse(from_os_str),
+        requires(PUSH_GROUP_NAME),
+        groups(&[AUTHENTICATION_METHOD_GROUP_NAME, SSH_KEY_GROUP_NAME]),
+    )]
     ssh_key: Option<PathBuf>,
 
     /// Provide a passphrase for the ssh-key.
@@ -78,7 +88,11 @@ pub(crate) struct WatchArgs {
 
     /// Use https as the authentication method.
     /// Requires a username and password.
-    #[clap(long, groups(&[AUTHENTICATION_METHOD_GROUP_NAME, HTTPS_GROUP_NAME]))]
+    #[clap(
+        long,
+        requires(PUSH_GROUP_NAME),
+        groups(&[AUTHENTICATION_METHOD_GROUP_NAME, HTTPS_GROUP_NAME]),
+    )]
     https: bool,
 
     /// Https username.
