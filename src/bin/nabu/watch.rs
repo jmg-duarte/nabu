@@ -1,7 +1,7 @@
 use nabu::{
     config::{global_config_path, Config, DEFAULT_DELAY},
     fs::list_subdirs,
-    git::{DummyRepository, Repository, WatchedRepository},
+    git::{AuthenticationMethod, DummyRepository, Repository, WatchedRepository},
 };
 
 use std::{
@@ -28,6 +28,11 @@ macro_rules! handle_event {
         ($path, commit_message)
     }};
 }
+
+const AUTHENTICATION_METHOD_GROUP_NAME: &str = "authentication_method_group";
+const HTTPS_GROUP_NAME: &str = "https_group";
+const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
+const PUSH_GROUP_NAME: &str = "push_group";
 
 #[derive(Args)]
 pub(crate) struct WatchArgs {
@@ -57,8 +62,46 @@ pub(crate) struct WatchArgs {
 
     /// Whether to push on exit.
     /// If not set, the value will be read from the config.
-    #[clap(long)]
+    #[clap(long, group(PUSH_GROUP_NAME))]
     push_on_exit: bool,
+
+    /// Use the ssh-agent as authenticaton method.
+    #[clap(
+        long,
+        group(AUTHENTICATION_METHOD_GROUP_NAME),
+        requires(PUSH_GROUP_NAME)
+    )]
+    ssh_agent: bool,
+
+    /// Use the ssh-key as authentication method.
+    #[clap(
+        long,
+        parse(from_os_str),
+        requires(PUSH_GROUP_NAME),
+        groups(&[AUTHENTICATION_METHOD_GROUP_NAME, SSH_KEY_GROUP_NAME]),
+    )]
+    ssh_key: Option<PathBuf>,
+
+    /// Provide a passphrase for the ssh-key.
+    #[clap(long, requires(SSH_KEY_GROUP_NAME), default_value_t)]
+    ssh_passphrase: String,
+
+    /// Use https as the authentication method.
+    /// Requires a username and password.
+    #[clap(
+        long,
+        requires(PUSH_GROUP_NAME),
+        groups(&[AUTHENTICATION_METHOD_GROUP_NAME, HTTPS_GROUP_NAME]),
+    )]
+    https: bool,
+
+    /// Https username.
+    #[clap(short = 'u', long = "username", requires(HTTPS_GROUP_NAME))]
+    https_username: Option<String>,
+
+    /// Https password.
+    #[clap(short = 'p', long = "password", requires(HTTPS_GROUP_NAME))]
+    https_password: Option<String>,
 }
 
 impl WatchArgs {
@@ -73,6 +116,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.get_authentication_method().unwrap(),
             )
             .run();
         } else {
@@ -85,6 +129,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.get_authentication_method().unwrap(),
             )
             .run();
         }
@@ -125,6 +170,29 @@ impl WatchArgs {
 
         list_subdirs(&self.directory, ignored_set)
     }
+
+    pub fn get_authentication_method(&self) -> Result<AuthenticationMethod> {
+        if self.ssh_agent {
+            return Ok(AuthenticationMethod::SshAgent);
+        }
+
+        if let Some(path) = self.ssh_key.clone() {
+            return if path.exists() {
+                Ok(AuthenticationMethod::SshKey {
+                    path,
+                    passphrase: self.ssh_passphrase.clone(),
+                })
+            } else {
+                // TODO create a proper error
+                panic!("provided key does not exist")
+            };
+        }
+
+        return Ok(AuthenticationMethod::Https {
+            username: self.https_username.clone().unwrap(),
+            password: self.https_password.clone().unwrap(),
+        });
+    }
 }
 
 pub(crate) struct Watch<R>
@@ -136,6 +204,7 @@ where
     watchlist: Vec<PathBuf>,
     delay: u64,
     push_on_exit: bool,
+    authentication_method: AuthenticationMethod,
 }
 
 impl<R> Watch<R>
@@ -148,6 +217,7 @@ where
         watchlist: Vec<PathBuf>,
         delay: u64,
         push_on_exit: bool,
+        authentication_method: AuthenticationMethod,
     ) -> Self {
         Self {
             repo,
@@ -155,6 +225,7 @@ where
             watchlist,
             delay,
             push_on_exit,
+            authentication_method,
         }
     }
 
@@ -191,7 +262,7 @@ where
         info!("Commited changes.");
 
         if self.push_on_exit {
-            match self.repo.push() {
+            match self.repo.push(self.authentication_method) {
                 Ok(()) => {
                     info!("Successfully pushed to remote.");
                 }

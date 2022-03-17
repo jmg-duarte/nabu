@@ -9,9 +9,10 @@
             "args": [
                 "--debug",
                 "watch",
-                "../../vault",
                 "--push-on-exit",
-                "true",
+                "--authentication-method",
+                "ssh-key",
+                "../../vault",
             ],
             "cwd": "${workspaceRoot}",
             "sourceLanguages": [

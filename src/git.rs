@@ -1,11 +1,19 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use clap::ArgEnum;
 use git2::{IndexAddOption, PushOptions};
 use log::{error, info};
 
 type Result<T> = std::result::Result<T, git2::Error>;
 
 const HEAD: &str = "HEAD";
+
+#[derive(ArgEnum, Clone)]
+pub enum AuthenticationMethod {
+    SshAgent,
+    SshKey { path: PathBuf, passphrase: String },
+    Https { username: String, password: String },
+}
 
 pub trait Repository {
     /// Stage a file path.
@@ -20,7 +28,7 @@ pub trait Repository {
     fn commit(&self, message: &str) -> Result<()>;
 
     /// Push commits to the remote.
-    fn push(&self) -> Result<()>;
+    fn push(&self, authentication_method: AuthenticationMethod) -> Result<()>;
 }
 
 pub struct WatchedRepository(git2::Repository);
@@ -84,7 +92,7 @@ impl Repository for WatchedRepository {
 
     /// Pushes the current branch into "origin".
     /// The function relies on `ssh-agent` for git authentication.
-    fn push(&self) -> Result<()> {
+    fn push(&self, authentication_method: AuthenticationMethod) -> Result<()> {
         let repo = &self.0;
 
         // TODO: allow remote to be configurable
@@ -95,10 +103,36 @@ impl Repository for WatchedRepository {
 
         let mut remote_callbacks = git2::RemoteCallbacks::new();
 
-        // TODO: allow usage of other authentication methods (e.g. ssh keys)
-        remote_callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            git2::Cred::ssh_key_from_agent(username_from_url.unwrap())
-        });
+        // TODO: allow usage of other authentication methods (e.g. ssh keys, https)
+        match authentication_method {
+            AuthenticationMethod::SshAgent => {
+                remote_callbacks.credentials(|_url, username_from_url, _allowed_types| {
+                    git2::Cred::ssh_key_from_agent(username_from_url.unwrap())
+                });
+            }
+            AuthenticationMethod::SshKey {
+                path: private_key_path,
+                passphrase: key_passphrase,
+            } => {
+                remote_callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+                    git2::Cred::ssh_key(
+                        username_from_url.unwrap(),
+                        Some(&private_key_path.clone().with_extension("pub")),
+                        &private_key_path,
+                        Some(&key_passphrase.clone()),
+                    )
+                });
+            }
+            AuthenticationMethod::Https {
+                username: https_username,
+                password: https_password,
+            } => {
+                remote_callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
+                    // TODO get password and username from some config
+                    git2::Cred::userpass_plaintext(&https_username, &https_password)
+                });
+            }
+        };
 
         remote_callbacks.push_update_reference(|refname, status| {
             if let Some(status_message) = status {
@@ -138,7 +172,7 @@ impl Repository for DummyRepository {
         Ok(())
     }
 
-    fn push(&self) -> Result<()> {
+    fn push(&self, _authentication_method: AuthenticationMethod) -> Result<()> {
         info!("pushed files to remote");
         Ok(())
     }
