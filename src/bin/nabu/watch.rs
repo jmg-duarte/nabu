@@ -1,7 +1,7 @@
 use nabu::{
     config::{global_config_path, Config, DEFAULT_DELAY},
     fs::list_subdirs,
-    git::{DummyRepository, Repository, WatchedRepository},
+    git::{AuthenticationMethod, DummyRepository, Repository, WatchedRepository},
 };
 
 use std::{
@@ -59,6 +59,10 @@ pub(crate) struct WatchArgs {
     /// If not set, the value will be read from the config.
     #[clap(long)]
     push_on_exit: bool,
+
+    /// Select authentication method.
+    #[clap(long, arg_enum)]
+    authentication_method: AuthenticationMethod,
 }
 
 impl WatchArgs {
@@ -73,6 +77,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.authentication_method,
             )
             .run();
         } else {
@@ -85,6 +90,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.authentication_method,
             )
             .run();
         }
@@ -136,6 +142,7 @@ where
     watchlist: Vec<PathBuf>,
     delay: u64,
     push_on_exit: bool,
+    authentication_method: AuthenticationMethod,
 }
 
 impl<R> Watch<R>
@@ -148,6 +155,7 @@ where
         watchlist: Vec<PathBuf>,
         delay: u64,
         push_on_exit: bool,
+        authentication_method: AuthenticationMethod,
     ) -> Self {
         Self {
             repo,
@@ -155,6 +163,7 @@ where
             watchlist,
             delay,
             push_on_exit,
+            authentication_method,
         }
     }
 
@@ -191,7 +200,7 @@ where
         info!("Commited changes.");
 
         if self.push_on_exit {
-            match self.repo.push() {
+            match self.repo.push(self.authentication_method) {
                 Ok(()) => {
                     info!("Successfully pushed to remote.");
                 }
