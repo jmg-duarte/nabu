@@ -15,7 +15,7 @@ pub enum AuthenticationMethod {
     Https { username: String, password: String },
 }
 
-pub trait Repository {
+pub trait Repository: Send {
     /// Stage a file path.
     fn stage<P>(&self, path: P) -> Result<()>
     where

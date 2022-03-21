@@ -12,8 +12,9 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{channel, Receiver, RecvTimeoutError, Sender},
-        Arc,
+        Arc, Mutex,
     },
+    thread,
     time::Duration,
 };
 
@@ -213,7 +214,7 @@ where
 
 impl<R> Watch<R>
 where
-    R: Repository,
+    R: Repository + 'static,
 {
     pub fn new(
         repo: R,
@@ -234,8 +235,8 @@ where
     }
 
     pub fn run(self) {
-        let (tx, rx): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(self.delay)).unwrap();
+        let (event_snd, event_rcv): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
+        let mut watcher = watcher(event_snd, Duration::from_secs(self.delay)).unwrap();
 
         for dir in &self.watchlist {
             info!("adding {} to watcher", dir.display());
@@ -245,7 +246,7 @@ where
         debug!("watching over {:?}", &self.watchlist);
 
         while self.running.load(Ordering::SeqCst) {
-            match rx.recv_timeout(Duration::from_millis(500)) {
+            match event_rcv.recv_timeout(Duration::from_millis(500)) {
                 Ok(event) => {
                     debug!("event received: {:?}", &event);
                     self.handle_event(&event, &self.repo)
@@ -266,13 +267,22 @@ where
         info!("Commited changes.");
 
         if self.push_on_exit {
-            match self.repo.push(self.authentication_method) {
-                Ok(()) => {
-                    info!("Successfully pushed to remote.");
+            let (sig_snd, sig_rcv) = channel();
+            let repo = Arc::new(Mutex::new(self.repo));
+            thread::spawn(move || {
+                let r = repo.try_lock().unwrap();
+                match r.push(self.authentication_method) {
+                    Ok(()) => {
+                        info!("Successfully pushed to remote.");
+                    }
+                    Err(err) => {
+                        warn!("{}", err.message());
+                    }
                 }
-                Err(err) => {
-                    warn!("{}", err.message());
-                }
+                sig_snd.send(()).unwrap();
+            });
+            if let Err(_) = sig_rcv.recv_timeout(Duration::from_secs(5)) {
+                warn!("Timeout while pushing, cleaning up now.");
             }
         }
     }
