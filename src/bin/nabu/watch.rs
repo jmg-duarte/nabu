@@ -6,6 +6,7 @@ use nabu::{
 
 use std::{
     collections::HashSet,
+    env,
     ffi::OsStr,
     path::PathBuf,
     sync::{
@@ -173,6 +174,9 @@ impl WatchArgs {
 
     pub fn get_authentication_method(&self) -> Result<AuthenticationMethod> {
         if self.ssh_agent {
+            if env::var("SSH_AGENT_PID").is_err() && env::var("SSH_AUTH_SOCK").is_err() {
+                warn!("ssh-agent is not running.");
+            }
             return Ok(AuthenticationMethod::SshAgent);
         }
 
