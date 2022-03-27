@@ -45,6 +45,7 @@ impl WatchedRepository {
 }
 
 impl Repository for WatchedRepository {
+    /// Stage a single path.
     fn stage<P>(&self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
@@ -60,6 +61,7 @@ impl Repository for WatchedRepository {
         Ok(())
     }
 
+    /// Stage all paths.
     fn stage_all(&self) -> Result<()> {
         let mut index = self.0.index()?;
         index.add_all(["*"].iter(), IndexAddOption::CHECK_PATHSPEC, None)?;
@@ -67,6 +69,7 @@ impl Repository for WatchedRepository {
         Ok(())
     }
 
+    /// Commit the staged paths with the provided message.
     fn commit(&self, message: &str) -> Result<()> {
         let repo = &self.0;
         // Find the current tree
@@ -142,9 +145,11 @@ impl Repository for WatchedRepository {
     }
 }
 
+/// Dummy repository, mainly useful for testing.
 pub struct DummyRepository;
 
 impl Repository for DummyRepository {
+    /// Stage a single path.
     fn stage<P>(&self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
@@ -153,16 +158,19 @@ impl Repository for DummyRepository {
         Ok(())
     }
 
+    /// Stage all paths.
     fn stage_all(&self) -> Result<()> {
         log::info!("staged all files");
         Ok(())
     }
 
+    /// Commit the staged paths with the provided message.
     fn commit(&self, message: &str) -> Result<()> {
         log::info!("commited staged files with message: {}", message);
         Ok(())
     }
 
+    /// Push the commits to the remote.
     fn push(&self, _authentication_method: AuthenticationMethod) -> Result<()> {
         log::info!("pushed files to remote");
         Ok(())
