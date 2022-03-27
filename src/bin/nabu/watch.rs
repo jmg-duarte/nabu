@@ -33,7 +33,6 @@ macro_rules! handle_event {
 }
 
 const AUTHENTICATION_METHOD_GROUP_NAME: &str = "authentication_method_group";
-const HTTPS_GROUP_NAME: &str = "https_group";
 const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
 const PUSH_GROUP_NAME: &str = "push_group";
 
@@ -94,23 +93,6 @@ pub(crate) struct WatchArgs {
     /// Provide a passphrase for the ssh-key.
     #[clap(long, requires(SSH_KEY_GROUP_NAME), default_value_t)]
     ssh_passphrase: String,
-
-    /// Use https as the authentication method.
-    /// Requires a username and password.
-    #[clap(
-        long,
-        requires(PUSH_GROUP_NAME),
-        groups(&[AUTHENTICATION_METHOD_GROUP_NAME, HTTPS_GROUP_NAME]),
-    )]
-    https: bool,
-
-    /// Https username.
-    #[clap(short = 'u', long = "username", requires(HTTPS_GROUP_NAME))]
-    https_username: Option<String>,
-
-    /// Https password.
-    #[clap(short = 'p', long = "password", requires(HTTPS_GROUP_NAME))]
-    https_password: Option<String>,
 }
 
 impl WatchArgs {
@@ -190,23 +172,15 @@ impl WatchArgs {
             return Ok(AuthenticationMethod::SshAgent);
         }
 
-        if let Some(path) = self.ssh_key.clone() {
-            return if path.exists() {
-                Ok(AuthenticationMethod::SshKey {
-                    path,
-                    passphrase: self.ssh_passphrase.clone(),
-                })
-            } else {
-                return Err(
-                    io::Error::new(io::ErrorKind::NotFound, "provided key does not exist").into(),
-                );
-            };
-        }
-
-        return Ok(AuthenticationMethod::Https {
-            username: self.https_username.clone().unwrap(),
-            password: self.https_password.clone().unwrap(),
-        });
+        let path = self.ssh_key.clone().unwrap();
+        return if path.exists() {
+            Ok(AuthenticationMethod::SshKey {
+                path,
+                passphrase: self.ssh_passphrase.clone(),
+            })
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "provided key does not exist").into())
+        };
     }
 }
 
