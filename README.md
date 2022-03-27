@@ -15,14 +15,12 @@ Nabu will stage and commit them to your repository.
 
 ## Get started
 
-Watch over a directory:
-
+*Watch over a directory.*
 ```bash
 $ nabu watch <directory>
 ```
 
-Watch over a directory and its children (recursively):
-
+*Watch over a directory and its children (recursively).*
 ```bash
 $ nabu watch -r <directory>
 ```
@@ -37,9 +35,9 @@ To push on exit you need to declare the `--push-on-exit` flag and an authenticat
 Using the `ssh-agent` method is very simple, you simply need to ensure that the `ssh-agent` is running
 and declare the `--ssh-agent` flag.
 
+*Push on exit using the SSH agent.*
 ```bash
-# Will watch the current directory and push on exit using the SSH agent
-nabu watch --push-on-exit --ssh-agent .
+$ nabu watch --push-on-exit --ssh-agent .
 ```
 
 ### Using your SSH key
@@ -47,11 +45,14 @@ nabu watch --push-on-exit --ssh-agent .
 To use the SSH key you need to declare the `--ssh-key` pointing to the SSH key associated with your git account.
 In the case your passphrase is not empty, you can use the `--ssh-passphrase` to declare it.
 
+*Push on exit using the provided SSH key (assumes the passphrase is empty).*
 ```bash
-# Will watch the current directory and push on exit using the provided SSH key (assumes the passphrase is empty)
-nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" .
-# Will watch the current directory and push on exit using the provided SSH key & passphrase
-nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" --ssh-passphrase "very_secret_passphrase" .
+$ nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" .
+```
+
+*Push on exit using the provided SSH key & passphrase.*
+```bash
+$ nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" --ssh-passphrase "very_secret_passphrase" .
 ```
 
 #### License
