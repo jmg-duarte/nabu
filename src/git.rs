@@ -16,6 +16,7 @@ pub enum AuthenticationMethod {
     SshKey { path: PathBuf, passphrase: String },
 }
 
+/// Trait abstracting over a repository backend.
 pub trait Repository: Send {
     /// Stage a file path.
     fn stage<P>(&self, path: P) -> Result<()>
@@ -32,6 +33,7 @@ pub trait Repository: Send {
     fn push(&self, authentication_method: AuthenticationMethod) -> Result<()>;
 }
 
+/// Wrapper over `git2::Repository`.
 pub struct WatchedRepository(git2::Repository);
 
 impl WatchedRepository {
