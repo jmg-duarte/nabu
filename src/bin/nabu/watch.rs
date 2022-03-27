@@ -31,12 +31,15 @@ macro_rules! handle_event {
     }};
 }
 
+// Group names for the CLI.
 const AUTHENTICATION_METHOD_GROUP_NAME: &str = "authentication_method_group";
 const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
 const PUSH_GROUP_NAME: &str = "push_group";
 
+/// Default timeout in seconds for pushing.
 const DEFAULT_PUSH_TIMEOUT: u64 = 5;
 
+/// `nabu`'s `watch` command arguments structure.
 #[derive(Args)]
 pub(crate) struct WatchArgs {
     /// The directory to watch over.
@@ -95,12 +98,13 @@ pub(crate) struct WatchArgs {
 }
 
 impl WatchArgs {
+    /// Execute the `watch` command from the provided arguments.
     pub fn run(mut self, watching: Arc<AtomicBool>) -> Result<()> {
         self.update_from_config();
         let watched_directories = self.list_watched_directories();
         let delay = self.delay.unwrap_or(DEFAULT_DELAY);
         if self.dry_run {
-            Watch::new(
+            WatchCommand::new(
                 DummyRepository,
                 watching,
                 watched_directories,
@@ -114,7 +118,7 @@ impl WatchArgs {
             let directory = self.directory.clone().canonicalize()?;
             log::info!("{}", directory.display());
             let repo = WatchedRepository::new(directory)?;
-            Watch::new(
+            WatchCommand::new(
                 repo,
                 watching,
                 watched_directories,
@@ -128,6 +132,8 @@ impl WatchArgs {
         Ok(())
     }
 
+    /// Update the arguments with values from the configuration file.
+    /// Only replaces missing values.
     pub fn update_from_config(&mut self) {
         let config = if let Some(path) = &self.config {
             Config::from_path(path).unwrap()
@@ -153,6 +159,7 @@ impl WatchArgs {
         }
     }
 
+    /// List all watched directories.
     pub fn list_watched_directories(&self) -> Vec<PathBuf> {
         let ignored_set = self
             .ignore
@@ -163,6 +170,7 @@ impl WatchArgs {
         list_subdirs(&self.directory, ignored_set)
     }
 
+    /// Convert the authentication-related arguments into an `AuthenticationMethod` enumeration.
     pub fn get_authentication_method(&self) -> Result<AuthenticationMethod> {
         if self.ssh_agent {
             if env::var("SSH_AGENT_PID").is_err() && env::var("SSH_AUTH_SOCK").is_err() {
@@ -183,7 +191,8 @@ impl WatchArgs {
     }
 }
 
-pub(crate) struct Watch<R>
+/// `nabu`'s `watch` command inner logic.
+pub(crate) struct WatchCommand<R>
 where
     R: Repository,
 {
@@ -196,10 +205,11 @@ where
     authentication_method: AuthenticationMethod,
 }
 
-impl<R> Watch<R>
+impl<R> WatchCommand<R>
 where
     R: Repository + 'static,
 {
+    /// Construct a new `WatchCommand`.
     pub fn new(
         repo: R,
         running: Arc<AtomicBool>,
@@ -220,6 +230,7 @@ where
         }
     }
 
+    /// Execute the `watch` command.
     pub fn run(self) {
         let (event_snd, event_rcv): (Sender<DebouncedEvent>, Receiver<DebouncedEvent>) = channel();
         let mut watcher = watcher(event_snd, Duration::from_secs(self.delay)).unwrap();
@@ -273,6 +284,7 @@ where
         }
     }
 
+    /// Handle an event sent by the watcher.
     fn handle_event(&self, event: &DebouncedEvent, repo: &R)
     where
         R: Repository,
