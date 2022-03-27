@@ -8,6 +8,7 @@ use std::{
     collections::HashSet,
     env,
     ffi::OsStr,
+    io,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -125,7 +126,7 @@ impl WatchArgs {
                 delay,
                 self.push_on_exit,
                 self.push_timeout,
-                self.get_authentication_method().unwrap(),
+                self.get_authentication_method()?,
             )
             .run();
         } else {
@@ -139,7 +140,7 @@ impl WatchArgs {
                 delay,
                 self.push_on_exit,
                 self.push_timeout,
-                self.get_authentication_method().unwrap(),
+                self.get_authentication_method()?,
             )
             .run();
         }
@@ -196,8 +197,9 @@ impl WatchArgs {
                     passphrase: self.ssh_passphrase.clone(),
                 })
             } else {
-                // TODO create a proper error
-                panic!("provided key does not exist")
+                return Err(
+                    io::Error::new(io::ErrorKind::NotFound, "provided key does not exist").into(),
+                );
             };
         }
 
