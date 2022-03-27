@@ -7,8 +7,8 @@
 $ cargo install nabu
 ```
 
-Nabu brings [Dura](https://github.com/tkellogg/dura) to the foreground;
-the main use case for Nabu is to keep your work committed.
+Nabu's job is to keep your work commited;
+in other words, it brings [Dura](https://github.com/tkellogg/dura) to the foreground.
 
 It watches over your files and when it detects changes,
 Nabu will stage and commit them to your repository.
@@ -19,6 +19,39 @@ Watch over a directory:
 
 ```bash
 $ nabu watch <directory>
+```
+
+Watch over a directory and its children (recursively):
+
+```bash
+$ nabu watch -r <directory>
+```
+
+## Push on exit
+
+To push on exit you need to declare the `--push-on-exit` flag and an authentication method
+(i.e. `--ssh-agent` or `--ssh-key`).
+
+### Using the SSH agent
+
+Using the `ssh-agent` method is very simple, you simply need to ensure that the `ssh-agent` is running
+and declare the `--ssh-agent` flag.
+
+```bash
+# Will watch the current directory and push on exit using the SSH agent
+nabu watch --push-on-exit --ssh-agent .
+```
+
+### Using your SSH key
+
+To use the SSH key you need to declare the `--ssh-key` pointing to the SSH key associated with your git account.
+In the case your passphrase is not empty, you can use the `--ssh-passphrase` to declare it.
+
+```bash
+# Will watch the current directory and push on exit using the provided SSH key (assumes the passphrase is empty)
+nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" .
+# Will watch the current directory and push on exit using the provided SSH key & passphrase
+nabu watch --push-on-exit --ssh-key "~/.ssh/id.rsa" --ssh-passphrase "very_secret_passphrase" .
 ```
 
 #### License
