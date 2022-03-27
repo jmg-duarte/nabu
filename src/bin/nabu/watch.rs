@@ -36,6 +36,8 @@ const HTTPS_GROUP_NAME: &str = "https_group";
 const SSH_KEY_GROUP_NAME: &str = "ssh_key_group";
 const PUSH_GROUP_NAME: &str = "push_group";
 
+const DEFAULT_PUSH_TIMEOUT: u64 = 5;
+
 #[derive(Args)]
 pub(crate) struct WatchArgs {
     /// The directory to watch over.
@@ -66,6 +68,10 @@ pub(crate) struct WatchArgs {
     /// If not set, the value will be read from the config.
     #[clap(long, group(PUSH_GROUP_NAME))]
     push_on_exit: bool,
+
+    /// Push timeout (in seconds).
+    #[clap(long, requires(PUSH_GROUP_NAME), default_value_t = DEFAULT_PUSH_TIMEOUT)]
+    push_timeout: u64,
 
     /// Use the ssh-agent as authenticaton method.
     #[clap(
@@ -118,6 +124,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.push_timeout,
                 self.get_authentication_method().unwrap(),
             )
             .run();
@@ -131,6 +138,7 @@ impl WatchArgs {
                 watched_directories,
                 delay,
                 self.push_on_exit,
+                self.push_timeout,
                 self.get_authentication_method().unwrap(),
             )
             .run();
@@ -209,6 +217,7 @@ where
     watchlist: Vec<PathBuf>,
     delay: u64,
     push_on_exit: bool,
+    push_timeout: u64,
     authentication_method: AuthenticationMethod,
 }
 
@@ -222,6 +231,7 @@ where
         watchlist: Vec<PathBuf>,
         delay: u64,
         push_on_exit: bool,
+        push_timeout: u64,
         authentication_method: AuthenticationMethod,
     ) -> Self {
         Self {
@@ -230,6 +240,7 @@ where
             watchlist,
             delay,
             push_on_exit,
+            push_timeout,
             authentication_method,
         }
     }
@@ -281,7 +292,7 @@ where
                 }
                 sig_snd.send(()).unwrap();
             });
-            if let Err(_) = sig_rcv.recv_timeout(Duration::from_secs(5)) {
+            if let Err(_) = sig_rcv.recv_timeout(Duration::from_secs(self.push_timeout)) {
                 warn!("Timeout while pushing, cleaning up now.");
             }
         }
