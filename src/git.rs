@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 use clap::ArgEnum;
 use git2::{IndexAddOption, PushOptions};
-use log::{error, info};
 
 type Result<T> = std::result::Result<T, git2::Error>;
 
@@ -128,7 +127,7 @@ impl Repository for WatchedRepository {
 
         remote_callbacks.push_update_reference(|refname, status| {
             if let Some(status_message) = status {
-                error!("error pushing reference {}", refname);
+                log::error!("error pushing reference {}", refname);
                 Err(git2::Error::from_str(status_message))
             } else {
                 Ok(())
@@ -150,22 +149,22 @@ impl Repository for DummyRepository {
     where
         P: AsRef<Path>,
     {
-        info!("staged file {}", path.as_ref().display());
+        log::info!("staged file {}", path.as_ref().display());
         Ok(())
     }
 
     fn stage_all(&self) -> Result<()> {
-        info!("staged all files");
+        log::info!("staged all files");
         Ok(())
     }
 
     fn commit(&self, message: &str) -> Result<()> {
-        info!("commited staged files with message: {}", message);
+        log::info!("commited staged files with message: {}", message);
         Ok(())
     }
 
     fn push(&self, _authentication_method: AuthenticationMethod) -> Result<()> {
-        info!("pushed files to remote");
+        log::info!("pushed files to remote");
         Ok(())
     }
 }

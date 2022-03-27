@@ -1,7 +1,6 @@
 use std::env::current_dir;
 
 use clap::Args;
-use log::info;
 use nabu::config::{global_config_path, Config};
 
 #[derive(Args)]
@@ -23,6 +22,6 @@ impl InitArgs {
             local_config_path
         };
         std::fs::write(&path, config_toml).unwrap();
-        info!("config file written to {}", path.display());
+        log::info!("config file written to {}", path.display());
     }
 }

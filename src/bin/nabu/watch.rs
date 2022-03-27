@@ -21,7 +21,6 @@ use std::{
 
 use clap::Args;
 use color_eyre::Result;
-use log::{debug, error, info, warn};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 macro_rules! handle_event {
@@ -113,7 +112,7 @@ impl WatchArgs {
             .run();
         } else {
             let directory = self.directory.clone().canonicalize()?;
-            info!("{}", directory.display());
+            log::info!("{}", directory.display());
             let repo = WatchedRepository::new(directory)?;
             Watch::new(
                 repo,
@@ -167,7 +166,7 @@ impl WatchArgs {
     pub fn get_authentication_method(&self) -> Result<AuthenticationMethod> {
         if self.ssh_agent {
             if env::var("SSH_AGENT_PID").is_err() && env::var("SSH_AUTH_SOCK").is_err() {
-                warn!("ssh-agent is not running.");
+                log::warn!("ssh-agent is not running.");
             }
             return Ok(AuthenticationMethod::SshAgent);
         }
@@ -226,32 +225,32 @@ where
         let mut watcher = watcher(event_snd, Duration::from_secs(self.delay)).unwrap();
 
         for dir in &self.watchlist {
-            info!("adding {} to watcher", dir.display());
+            log::info!("adding {} to watcher", dir.display());
             watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
         }
 
-        debug!("watching over {:?}", &self.watchlist);
+        log::debug!("watching over {:?}", &self.watchlist);
 
         while self.running.load(Ordering::SeqCst) {
             match event_rcv.recv_timeout(Duration::from_millis(500)) {
                 Ok(event) => {
-                    debug!("event received: {:?}", &event);
+                    log::debug!("event received: {:?}", &event);
                     self.handle_event(&event, &self.repo)
                 }
-                Err(RecvTimeoutError::Disconnected) => error!("sender disconnected"),
+                Err(RecvTimeoutError::Disconnected) => log::error!("sender disconnected"),
                 _ => {}
             }
         }
 
-        info!("Termination signal received, attempting to save changes.");
+        log::info!("Termination signal received, attempting to save changes.");
 
         self.repo.stage_all().unwrap();
-        info!("Staged changes.");
+        log::info!("Staged changes.");
         self.repo
             .commit(&format!("nabu exited snapshot @ {}", chrono::Utc::now()))
             .unwrap();
 
-        info!("Commited changes.");
+        log::info!("Commited changes.");
 
         if self.push_on_exit {
             let (sig_snd, sig_rcv) = channel();
@@ -260,16 +259,16 @@ where
                 let r = repo.try_lock().unwrap();
                 match r.push(self.authentication_method) {
                     Ok(()) => {
-                        info!("Successfully pushed to remote.");
+                        log::info!("Successfully pushed to remote.");
                     }
                     Err(err) => {
-                        warn!("{}", err.message());
+                        log::warn!("{}", err.message());
                     }
                 }
                 sig_snd.send(()).unwrap();
             });
             if let Err(_) = sig_rcv.recv_timeout(Duration::from_secs(self.push_timeout)) {
-                warn!("Timeout while pushing, cleaning up now.");
+                log::warn!("Timeout while pushing, cleaning up now.");
             }
         }
     }
@@ -278,7 +277,7 @@ where
     where
         R: Repository,
     {
-        debug!("received event: {:?}", event);
+        log::debug!("received event: {:?}", event);
         // TODO: better commit messages (e.g. short title, descriptive body)
         // TODO: configurable commit messages
         let (path, message) = match event {

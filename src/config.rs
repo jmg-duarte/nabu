@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use color_eyre::Result;
-use log::info;
 use serde::{Deserialize, Serialize};
 
 /// Default watcher delay (in seconds).
@@ -35,7 +34,7 @@ impl Config {
     where
         P: AsRef<Path>,
     {
-        info!("attempting to read config from {}", path.as_ref().display());
+        log::info!("attempting to read config from {}", path.as_ref().display());
         let bytes = std::fs::read(path)?;
         Ok(toml::from_slice::<Config>(bytes.as_slice())?)
     }
