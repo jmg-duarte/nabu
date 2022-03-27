@@ -8,9 +8,12 @@ type Result<T> = std::result::Result<T, git2::Error>;
 
 const HEAD: &str = "HEAD";
 
+/// The authentication method being used.
 #[derive(ArgEnum, Clone)]
 pub enum AuthenticationMethod {
+    /// `ssh-agent`.
     SshAgent,
+    /// SSH key containing the path and passphrase.
     SshKey { path: PathBuf, passphrase: String },
 }
 
