@@ -14,8 +14,8 @@ exclude = ["static/*"]
 
 [dependencies]
 notify = "4"
-clap = { version = "3.1.0", features = ["derive"] }
-git2 = "0.13"
+clap = { version = "3", features = ["derive"] }
+git2 = "0.14"
 walkdir = "2"
 chrono = "0.4"
 
